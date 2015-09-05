@@ -40,7 +40,7 @@ type gh struct {
 }
 
 func Init(ctx context.Context) context.Context {
-	t, _ := ctx.Value(templateContextKey).(*template.Template)
+	t, _ := ctx.Value("maintemplate").(*template.Template)
 	cfg := config.GetFromContext(ctx)
 	gh := &gh{
 		irc: irc.GetFromContext(ctx),
