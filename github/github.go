@@ -32,16 +32,18 @@ import (
 	"golang.org/x/net/context"
 )
 
+const maxLines = 5
+
 type gh struct {
 	irc *irc.IConn
 	tpl *template.Template
 }
 
 func Init(ctx context.Context) context.Context {
-	t, _ := ctx.Value("maintemplate").(*template.Template)
+	t, _ := ctx.Value(templateContextKey).(*template.Template)
 	cfg := config.GetFromContext(ctx)
 	gh := &gh{
-		irc: ctx.Value("irc").(*irc.IConn),
+		irc: irc.GetFromContext(ctx),
 		tpl: template.Must(t.ParseFiles(cfg.Github.TplPath)),
 	}
 
@@ -50,6 +52,7 @@ func Init(ctx context.Context) context.Context {
 }
 
 func (s *gh) handler(w http.ResponseWriter, r *http.Request) {
+	d.D("request", r)
 	switch r.Header.Get("X-Github-Event") {
 	case "push":
 		s.pushHandler(r)
@@ -62,12 +65,17 @@ func (s *gh) handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *gh) pushHandler(r *http.Request) {
-	payload := r.FormValue("payload")
-	if len(payload) == 0 {
-		return
+func handlePayload(r *http.Request, data interface{}) error {
+	if r.Header.Get("Content-Type") == "application/json" {
+		dec := json.NewDecoder(r.Body)
+		return dec.Decode(&data)
+	} else {
+		payload := r.FormValue("payload")
+		return json.Unmarshal([]byte(payload), &data)
 	}
+}
 
+func (s *gh) pushHandler(r *http.Request) {
 	var data struct {
 		Ref     string
 		Commits []struct {
@@ -84,20 +92,22 @@ func (s *gh) pushHandler(r *http.Request) {
 		}
 	}
 
-	err := json.Unmarshal([]byte(payload), &data)
+	err := handlePayload(r, &data)
 	if err != nil {
-		d.P("Error unmarshaling json:", err, "payload was: ", payload)
+		d.P("Error unmarshaling json:", err)
 		return
 	}
 
 	pos := strings.LastIndex(data.Ref, "/") + 1
 	branch := data.Ref[pos:]
-	lines := make([]string, 0, len(data.Commits))
+	lines := make([]string, 0, maxLines)
 	repo := data.Repository.Name
 	repourl := data.Repository.Url
 	b := bytes.NewBuffer(nil)
 
-	for _, v := range data.Commits {
+	needSkip := len(data.Commits) > maxLines
+
+	for k, v := range data.Commits {
 		firstline := strings.TrimSpace(v.Message)
 		pos = strings.Index(firstline, "\n")
 		if pos > 0 {
@@ -105,28 +115,45 @@ func (s *gh) pushHandler(r *http.Request) {
 		}
 
 		b.Reset()
-		_ = s.tpl.ExecuteTemplate(b, "push", &struct {
-			Author  string // commits[0].author.username
-			Url     string // commits[0].url
-			Message string // commits[0].message
-			ID      string // commits[0].id
-			Repo    string // repository.name
-			Repourl string // repository.url
-			Branch  string // .ref the part after refs/heads/
-		}{
-			Author:  v.Author.Username,
-			Url:     v.Url,
-			Message: firstline,
-			ID:      v.Id,
-			Repo:    repo,
-			Repourl: repourl,
-			Branch:  branch,
-		})
-		lines = append(lines, b.String())
-	}
+		if needSkip && k == len(data.Commits)-maxLines {
+			_ = s.tpl.ExecuteTemplate(b, "pushSkipped", &struct {
+				Author    string // commits[i].author.username
+				FromID    string // commits[0].id
+				ToID      string // commits[len -5].id
+				SkipCount int
+				Repo      string // repository.name
+				RepoURL   string // repository.url
+			}{
+				Author:    v.Author.Username,
+				FromID:    data.Commits[0].Id,
+				ToID:      v.Id,
+				SkipCount: len(data.Commits) - 4,
+				Repo:      repo,
+				RepoURL:   repourl,
+			})
+		} else if !needSkip || k > len(data.Commits)-maxLines {
+			_ = s.tpl.ExecuteTemplate(b, "push", &struct {
+				Author  string // commits[i].author.username
+				Url     string // commits[i].url
+				Message string // commits[i].message
+				ID      string // commits[i].id
+				Repo    string // repository.name
+				RepoURL string // repository.url
+				Branch  string // .ref the part after refs/heads/
+			}{
+				Author:  v.Author.Username,
+				Url:     v.Url,
+				Message: firstline,
+				ID:      v.Id,
+				Repo:    repo,
+				RepoURL: repourl,
+				Branch:  branch,
+			})
+		} else {
+			continue
+		}
 
-	if l := len(lines); l > 5 {
-		lines = lines[l-5:]
+		lines = append(lines, b.String())
 	}
 
 	for _, line := range lines {
@@ -135,11 +162,6 @@ func (s *gh) pushHandler(r *http.Request) {
 }
 
 func (s *gh) prHandler(r *http.Request) {
-	payload := r.FormValue("payload")
-	if len(payload) == 0 {
-		return
-	}
-
 	var data struct {
 		Action       string
 		Pull_request struct {
@@ -151,9 +173,9 @@ func (s *gh) prHandler(r *http.Request) {
 		}
 	}
 
-	err := json.Unmarshal([]byte(payload), &data)
+	err := handlePayload(r, &data)
 	if err != nil {
-		d.P("Error unmarshaling json:", err, "payload was: ", payload)
+		d.P("Error unmarshaling json:", err)
 		return
 	}
 
@@ -176,11 +198,6 @@ func (s *gh) prHandler(r *http.Request) {
 }
 
 func (s *gh) wikiHandler(r *http.Request) {
-	payload := r.FormValue("payload")
-	if len(payload) == 0 {
-		return
-	}
-
 	var data struct {
 		Pages []struct {
 			Page_name string
@@ -193,9 +210,9 @@ func (s *gh) wikiHandler(r *http.Request) {
 		}
 	}
 
-	err := json.Unmarshal([]byte(payload), &data)
+	err := handlePayload(r, &data)
 	if err != nil {
-		d.P("Error unmarshaling json:", err, "payload was: ", payload)
+		d.P("Error unmarshaling json:", err)
 		return
 	}
 
@@ -220,8 +237,8 @@ func (s *gh) wikiHandler(r *http.Request) {
 		lines = append(lines, b.String())
 	}
 
-	if l := len(lines); l > 5 {
-		lines = lines[l-5:]
+	if l := len(lines); l > maxLines {
+		lines = lines[l-maxLines:]
 	}
 
 	for _, line := range lines {
@@ -230,11 +247,6 @@ func (s *gh) wikiHandler(r *http.Request) {
 }
 
 func (s *gh) issueHandler(r *http.Request) {
-	payload := r.FormValue("payload")
-	if len(payload) == 0 {
-		return
-	}
-
 	var data struct {
 		Action string
 		Issue  struct {
@@ -246,9 +258,9 @@ func (s *gh) issueHandler(r *http.Request) {
 		}
 	}
 
-	err := json.Unmarshal([]byte(payload), &data)
+	err := handlePayload(r, &data)
 	if err != nil {
-		d.P("Error unmarshaling json:", err, "payload was: ", payload)
+		d.P("Error unmarshaling json:", err)
 		return
 	}
 

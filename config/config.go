@@ -77,6 +77,12 @@ password=
 channel=systemd
 `
 
+var contextKey *int
+
+func init() {
+	contextKey = new(int)
+}
+
 func Init(ctx context.Context) context.Context {
 	flag.Parse()
 	f, err := os.OpenFile(*settingsFile, os.O_CREATE|os.O_RDWR, 0660)
@@ -92,7 +98,7 @@ func Init(ctx context.Context) context.Context {
 	}
 
 	cfg := ReadConfig(f)
-	return context.WithValue(ctx, "appconfig", cfg)
+	return context.WithValue(ctx, contextKey, cfg)
 }
 
 func ReadConfig(f *os.File) *AppConfig {
@@ -105,6 +111,6 @@ func ReadConfig(f *os.File) *AppConfig {
 }
 
 func GetFromContext(ctx context.Context) *AppConfig {
-	cfg, _ := ctx.Value("appconfig").(*AppConfig)
+	cfg, _ := ctx.Value(contextKey).(*AppConfig)
 	return cfg
 }

@@ -33,7 +33,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+var templateContextKey *int
+
 func main() {
+	templateContextKey = new(int)
 	time.Local = time.UTC
 	ctx := context.Background()
 	ctx = config.Init(ctx)
@@ -63,5 +66,5 @@ func initRootTemplate(ctx context.Context) context.Context {
 		"unescape": html.UnescapeString,
 	})
 
-	return context.WithValue(ctx, "maintemplate", t)
+	return context.WithValue(ctx, templateContextKey, t)
 }

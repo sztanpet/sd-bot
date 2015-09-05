@@ -33,6 +33,12 @@ import (
 	"golang.org/x/net/context"
 )
 
+var contextKey *int
+
+func init() {
+	contextKey = new(int)
+}
+
 type Callback func(*IConn, *irc.Message, Callback)
 
 // IConn represents the IRC connection to twitch,
@@ -93,10 +99,15 @@ func Init(ctx context.Context) context.Context {
 		w:    make(chan *irc.Message),
 		quit: make(chan struct{}),
 	}
-	ctx = context.WithValue(ctx, "irc", c)
+	ctx = context.WithValue(ctx, contextKey, c)
 	c.Reconnect("init")
 
 	return ctx
+}
+
+func GetFromContext(ctx context.Context) *IConn {
+	c, _ := ctx.Value(contextKey).(*IConn)
+	return c
 }
 
 func (c *IConn) Reconnect(format string, args ...interface{}) {
