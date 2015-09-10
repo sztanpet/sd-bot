@@ -78,6 +78,7 @@ func handlePayload(r *http.Request, data interface{}) error {
 func (s *gh) pushHandler(r *http.Request) {
 	var data struct {
 		Ref     string
+		Before  string
 		Commits []struct {
 			Author struct {
 				Username string
@@ -105,6 +106,9 @@ func (s *gh) pushHandler(r *http.Request) {
 	repourl := data.Repository.Url
 	b := bytes.NewBuffer(nil)
 
+	// if we want to print more than 5 lines, just print two lines, one line
+	// announcing that commits are skipped with a compare view of the commits
+	// and the last line, usually a merge commit
 	needSkip := len(data.Commits) > maxLines
 
 	for k, v := range data.Commits {
@@ -115,23 +119,23 @@ func (s *gh) pushHandler(r *http.Request) {
 		}
 
 		b.Reset()
-		if needSkip && k == len(data.Commits)-maxLines {
+		if needSkip && k == len(data.Commits)-2 {
 			_ = s.tpl.ExecuteTemplate(b, "pushSkipped", &struct {
 				Author    string // commits[i].author.username
 				FromID    string // commits[0].id
-				ToID      string // commits[len -5].id
+				ToID      string // commits[len - 2].id
 				SkipCount int
 				Repo      string // repository.name
 				RepoURL   string // repository.url
 			}{
 				Author:    v.Author.Username,
-				FromID:    data.Commits[0].Id,
+				FromID:    data.Before,
 				ToID:      v.Id,
-				SkipCount: len(data.Commits) - 4,
+				SkipCount: len(data.Commits) - 1,
 				Repo:      repo,
 				RepoURL:   repourl,
 			})
-		} else if !needSkip || k > len(data.Commits)-maxLines {
+		} else if !needSkip || k > len(data.Commits)-2 {
 			_ = s.tpl.ExecuteTemplate(b, "push", &struct {
 				Author  string // commits[i].author.username
 				Url     string // commits[i].url
