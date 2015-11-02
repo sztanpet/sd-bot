@@ -1,4 +1,6 @@
 settings.cfg
-obscommits
+sd-bot
 *.sublime-*
 sd-bot
+deploy.sh
+*.state

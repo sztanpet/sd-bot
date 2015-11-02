@@ -17,13 +17,17 @@
   along with sd-bot; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-package irc
+// Package sirc is a thin utility library ontop of github.com/sorcix/irc
+// it handles the connection to the server and provides a single callback
+// for code to interact with
+package sirc
 
 import (
 	"fmt"
 	"math"
 	"math/rand"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,7 +43,9 @@ func init() {
 	contextKey = new(int)
 }
 
-type Callback func(*IConn, *irc.Message, Callback)
+// Callback is function that is called for every irc command except:
+// PING and ERR_NICKNAMEINUSE which are handled by the package
+type Callback func(*IConn, *irc.Message) bool
 
 // IConn represents the IRC connection to twitch,
 // it is purely "single-threaded", methods are not safe to call concurrently
@@ -53,7 +59,7 @@ type IConn struct {
 	wg sync.WaitGroup
 	*irc.Decoder
 	*irc.Encoder
-	cfg *config.IRC
+	cfg config.IRC
 
 	mu       sync.Mutex
 	Loggedin bool
@@ -69,35 +75,13 @@ type IConn struct {
 	lastsent time.Time
 }
 
-// rateLimit implements Hybrid's flood control algorithm for outgoing lines.
-// Copyright (c) 2009+ Alex Bramley, github.com/fluffle/goirc
-func (c *IConn) rateLimit(chars int) time.Duration {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Hybrid's algorithm allows for 2 seconds per line and an additional
-	// 1/120 of a second per character on that line.
-	linetime := 2*time.Second + time.Duration(chars)*time.Second/120
-	elapsed := time.Now().Sub(c.lastsent)
-	if c.badness += linetime - elapsed; c.badness < 0 {
-		// negative badness times are badness...
-		c.badness = 0
-	}
-	c.lastsent = time.Now()
-	// If we've sent more than 10 second's worth of lines according to the
-	// calculation above, then we're at risk of "Excess Flood".
-	if c.badness > 10*time.Second {
-		return linetime
-	}
-	return 0
-}
-
-func Init(ctx context.Context) context.Context {
-	cfg := &config.GetFromContext(ctx).IRC
+// Init creates a client and assigns it to the context
+func Init(ctx context.Context, cb Callback) context.Context {
 	c := &IConn{
-		cfg:  cfg,
-		w:    make(chan *irc.Message),
-		quit: make(chan struct{}),
+		Callback: cb,
+		cfg:      config.FromContext(ctx).IRC,
+		w:        make(chan *irc.Message),
+		quit:     make(chan struct{}),
 	}
 	ctx = context.WithValue(ctx, contextKey, c)
 	c.Reconnect("init")
@@ -105,11 +89,13 @@ func Init(ctx context.Context) context.Context {
 	return ctx
 }
 
-func GetFromContext(ctx context.Context) *IConn {
+// FromContext returns the client from the context
+func FromContext(ctx context.Context) *IConn {
 	c, _ := ctx.Value(contextKey).(*IConn)
 	return c
 }
 
+// Reconnect does exactly that and takes a message to be printed as arguments
 func (c *IConn) Reconnect(format string, args ...interface{}) {
 	c.mu.Lock()
 
@@ -208,16 +194,6 @@ func (c *IConn) Write(m *irc.Message) {
 	c.w <- m
 }
 
-func (c *IConn) WriteLine(line string) {
-	m := &irc.Message{
-		Command:  irc.PRIVMSG,
-		Params:   []string{"#" + c.cfg.Channel},
-		Trailing: line,
-	}
-
-	c.Write(m)
-}
-
 // read handles parsing messages from IRC and reconnects if there are problems
 // returns nil on error
 func (c *IConn) read() {
@@ -250,13 +226,6 @@ func (c *IConn) read() {
 			switch m.Command {
 			case irc.PING:
 				c.w <- &irc.Message{Command: irc.PONG, Params: m.Params, Trailing: m.Trailing}
-			case irc.RPL_WELCOME: // successfully connected
-				d.PF(1, "Successfully connected to IRC")
-				c.mu.Lock()
-				c.Loggedin = true
-				c.tries = 0
-				c.mu.Unlock()
-				c.Write(&irc.Message{Command: irc.JOIN, Params: []string{"#" + c.cfg.Channel}})
 			case irc.ERR_NICKNAMEINUSE:
 				c.w <- &irc.Message{
 					Command: irc.NICK,
@@ -264,10 +233,17 @@ func (c *IConn) read() {
 						fmt.Sprintf(c.cfg.Nick+"%d", rand.Intn(10)),
 					},
 				}
+			case irc.RPL_WELCOME: // successfully connected
+				d.PF(1, "Successfully connected to IRC")
+				c.mu.Lock()
+				c.Loggedin = true
+				c.tries = 0
+				c.mu.Unlock()
+				fallthrough
 			default:
 				d.DF(1, "\t< %v", m.String())
 				if c.Callback != nil {
-					c.Callback(c, m, c.Callback)
+					c.Callback(c, m)
 				}
 			}
 
@@ -290,4 +266,64 @@ func (c *IConn) read() {
 		go c.Reconnect("read error: %+v", err)
 		return
 	}
+}
+
+// rateLimit implements Hybrid's flood control algorithm for outgoing lines.
+// Copyright (c) 2009+ Alex Bramley, github.com/fluffle/goirc
+func (c *IConn) rateLimit(chars int) time.Duration {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Hybrid's algorithm allows for 2 seconds per line and an additional
+	// 1/120 of a second per character on that line.
+	linetime := 2*time.Second + time.Duration(chars)*time.Second/120
+	elapsed := time.Now().Sub(c.lastsent)
+	if c.badness += linetime - elapsed; c.badness < 0 {
+		// negative badness times are badness...
+		c.badness = 0
+	}
+	c.lastsent = time.Now()
+	// If we've sent more than 10 second's worth of lines according to the
+	// calculation above, then we're at risk of "Excess Flood".
+	if c.badness > 10*time.Second {
+		return linetime
+	}
+	return 0
+}
+
+// Target returns the appropriate target of an operation based on the message
+// if it's a private message, it returns the nick of the person messaging,
+// if its a channel message, it returns the channel
+func (c *IConn) Target(m *irc.Message) string {
+	if len(m.Params) == 0 || len(m.Params[0]) == 0 {
+		return ""
+	}
+
+	target := m.Params[0]
+	// FIXME way too naive of a way to see if we got a private message or not
+	if target[0] == '#' {
+		return target
+	}
+
+	// not a channel message, so its a private message, so return the sender
+	return m.Prefix.Name
+}
+
+// PrivMsg sends a PRIVMSG to the "appropriate" target as decided by Target
+// with the following trailing arguments
+func (c *IConn) PrivMsg(m *irc.Message, args ...string) {
+	c.Write(&irc.Message{
+		Command:  irc.PRIVMSG,
+		Params:   []string{c.Target(m)},
+		Trailing: strings.Join(args, ""),
+	})
+}
+
+// Notice sends a NOTICE to the target with the following trailing arguments
+func (c *IConn) Notice(m *irc.Message, args ...string) {
+	c.Write(&irc.Message{
+		Command:  irc.NOTICE,
+		Params:   []string{m.Prefix.Name},
+		Trailing: strings.Join(args, ""),
+	})
 }

@@ -22,9 +22,11 @@ package config
 import (
 	"flag"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
-	"code.google.com/p/gcfg"
+	"github.com/naoina/toml"
 	"golang.org/x/net/context"
 )
 
@@ -38,53 +40,68 @@ type Debug struct {
 }
 
 type Github struct {
-	HookPath string
-	TplPath  string
+	HookPath     string `toml:"hookpath"`
+	TplPath      string `toml:"tplpath"`
+	AnnounceChan string `toml:"announcechan"`
+}
+
+type Factoids struct {
+	HookPath string `toml:"hookpath"`
+	TplPath  string `toml:"tplpath"`
 }
 
 type IRC struct {
 	Addr     string
 	Nick     string
 	Password string
-	Channel  string
+	Channel  []string
 }
 
 type AppConfig struct {
 	Website
 	Debug
 	Github
-	IRC
+	Factoids
+	IRC `toml:"irc"`
 }
-
-var settingsFile = flag.String("config", "settings.cfg", `path to the config file, it it doesn't exist it will
-		be created with default values`)
 
 const sampleconf = `[website]
 addr=:80
 
 [debug]
-debug=no
+debug=false
 logfile=logs/debug.txt
 
 [github]
 hookpath=somethingrandom
 tplpath=tpl/github.tpl
+announcechan="#systemd"
+
+[factoids]
+hookpath=/
+tplpath=tpl/factoids.tpl
 
 [irc]
 addr=irc.freenode.net:6667
 nick=sd-bot
 password=
-channel=systemd
+channels=["#systemd"]
 `
 
-var contextKey *int
+var (
+	contextKey   *int
+	settingsFile *string
+)
 
 func init() {
 	contextKey = new(int)
 }
 
 func Init(ctx context.Context) context.Context {
+	settingsFile = flag.String("config", "settings.cfg", `path to the config file, it it doesn't exist it will
+			be created with default values`)
 	flag.Parse()
+
 	f, err := os.OpenFile(*settingsFile, os.O_CREATE|os.O_RDWR, 0660)
 	if err != nil {
 		panic("Could not open " + *settingsFile + " err: " + err.Error())
@@ -97,20 +114,49 @@ func Init(ctx context.Context) context.Context {
 		f.Seek(0, 0)
 	}
 
-	cfg := ReadConfig(f)
-	return context.WithValue(ctx, contextKey, cfg)
-}
-
-func ReadConfig(f *os.File) *AppConfig {
-	ret := &AppConfig{}
-	if err := gcfg.ReadInto(ret, f); err != nil {
+	cfg := &AppConfig{}
+	if err := ReadConfig(f, cfg); err != nil {
 		panic("Failed to parse config file, err: " + err.Error())
 	}
 
-	return ret
+	return context.WithValue(ctx, contextKey, cfg)
 }
 
-func GetFromContext(ctx context.Context) *AppConfig {
+func ReadConfig(r io.Reader, d interface{}) error {
+	dec := toml.NewDecoder(r)
+	return dec.Decode(d)
+}
+
+func WriteConfig(w io.Writer, d interface{}) error {
+	enc := toml.NewEncoder(w)
+	return enc.Encode(d)
+}
+
+func Save(ctx context.Context) error {
+	return SafeSave(*settingsFile, *FromContext(ctx))
+}
+
+func SafeSave(file string, data interface{}) error {
+	dir, err := filepath.Abs(filepath.Dir(file))
+	if err != nil {
+		return err
+	}
+
+	f, err := ioutil.TempFile(dir, "tmpconf-")
+	if err != nil {
+		return err
+	}
+
+	err = WriteConfig(f, data)
+	if err != nil {
+		return err
+	}
+	_ = f.Close()
+
+	return os.Rename(f.Name(), file)
+}
+
+func FromContext(ctx context.Context) *AppConfig {
 	cfg, _ := ctx.Value(contextKey).(*AppConfig)
 	return cfg
 }

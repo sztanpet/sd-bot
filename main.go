@@ -28,8 +28,8 @@ import (
 
 	"github.com/sztanpet/sd-bot/config"
 	"github.com/sztanpet/sd-bot/debug"
+	"github.com/sztanpet/sd-bot/factoids"
 	"github.com/sztanpet/sd-bot/github"
-	"github.com/sztanpet/sd-bot/irc"
 	"golang.org/x/net/context"
 )
 
@@ -39,10 +39,10 @@ func main() {
 	ctx = config.Init(ctx)
 	ctx = d.Init(ctx)
 	ctx = initRootTemplate(ctx)
-	ctx = irc.Init(ctx)
 	ctx = github.Init(ctx)
+	ctx = factoids.Init(ctx)
 
-	cfg := config.GetFromContext(ctx)
+	cfg := config.FromContext(ctx)
 	if err := http.ListenAndServe(cfg.Website.Addr, http.DefaultServeMux); err != nil {
 		d.F("ListenAndServe:", err)
 	}
