@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sorcix/irc"
+	"github.com/sztanpet/sd-bot/config"
 	"github.com/sztanpet/sd-bot/debug"
 	"github.com/sztanpet/sd-bot/factoids"
 	"github.com/sztanpet/sd-bot/persist"
@@ -31,13 +32,25 @@ func initIRC(ctx context.Context) context.Context {
 	}
 
 	admins = *adminState.Get().(*map[string]struct{})
-	ctx = sirc.Init(ctx, handleIRC)
+	ctx = sirc.Init(ctx, func(c *sirc.IConn, m *irc.Message) bool {
+		return handleIRC(ctx, c, m)
+	})
 
 	return ctx
 }
 
-func handleIRC(c *sirc.IConn, m *irc.Message) bool {
+func handleIRC(ctx context.Context, c *sirc.IConn, m *irc.Message) bool {
 	if m.Command == irc.RPL_WELCOME {
+		cfg := config.FromContext(ctx)
+		c.Write(&irc.Message{
+			Command:  irc.PRIVMSG,
+			Params:   []string{"NickServ"},
+			Trailing: "identify " + cfg.Nickserv.Password,
+		})
+		c.Write(&irc.Message{
+			Command: irc.MODE,
+			Params:  []string{cfg.IRC.Nick, "+R"},
+		})
 		c.Write(&irc.Message{Command: irc.JOIN, Params: []string{"#systemd"}})
 		return false
 	}

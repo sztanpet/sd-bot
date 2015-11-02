@@ -156,11 +156,11 @@ func (s *gh) pushHandler(r *http.Request) {
 				RepoURL: repoURL,
 				Branch:  branch,
 			})
-		} else {
-			continue
 		}
 
-		lines = append(lines, b.String())
+		if b.Len() > 0 {
+			lines = append(lines, b.String())
+		}
 	}
 
 	for _, line := range lines {

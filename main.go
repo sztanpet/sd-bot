@@ -39,6 +39,7 @@ func main() {
 	ctx = config.Init(ctx)
 	ctx = d.Init(ctx)
 	ctx = initRootTemplate(ctx)
+	ctx = initIRC(ctx)
 	ctx = github.Init(ctx)
 	ctx = factoids.Init(ctx)
 

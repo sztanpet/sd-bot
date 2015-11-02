@@ -262,6 +262,12 @@ func (c *IConn) read() {
 		}
 
 		// otherwise there either was an error or we did not get a reply for our ping
+		// call the callback with a made up command name
+		if c.Callback != nil {
+			c.Callback(c, &irc.Message{
+				Command: "DISCONNECT",
+			})
+		}
 		c.addDelay()
 		go c.Reconnect("read error: %+v", err)
 		return

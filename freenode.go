@@ -119,6 +119,7 @@ func handleFreenode(c *sirc.IConn, m *irc.Message) bool {
 		// >> :wolfe.freenode.net 263 sztanpet WHOIS :This command could not be completed because it has been used recently, and is rate-limited.
 		c.Write(&irc.Message{
 			Command:  irc.PRIVMSG,
+			Params:   []string{"NickServ"},
 			Trailing: "info " + m.Prefix.Name,
 		})
 	case irc.NOTICE: // asked for info from nickserv, it arrived

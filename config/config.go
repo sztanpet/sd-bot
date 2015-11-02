@@ -57,12 +57,17 @@ type IRC struct {
 	Channels []string
 }
 
+type Nickserv struct {
+	Password string
+}
+
 type AppConfig struct {
 	Website
 	Debug
 	Github
 	Factoids
 	IRC `toml:"irc"`
+	Nickserv
 }
 
 const sampleconf = `[website]
@@ -86,6 +91,9 @@ addr="irc.freenode.net:6667"
 nick="sd-bot"
 password=""
 channels=["#systemd"]
+
+[nickserv]
+password=""
 `
 
 var (
