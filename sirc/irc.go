@@ -138,7 +138,7 @@ func (c *IConn) Reconnect(format string, args ...interface{}) {
 			"0",
 			"*",
 		},
-		Trailing: "github.com/sztanpet/sd-bot",
+		Trailing: "http://sd-bot.sztanpet.net/",
 	}
 	c.w <- &irc.Message{Command: irc.NICK, Params: []string{c.cfg.Nick}}
 	if len(c.cfg.Password) > 0 {
