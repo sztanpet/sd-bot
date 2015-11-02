@@ -64,7 +64,7 @@ func Init(ctx context.Context) context.Context {
 
 	s = state.Get().(*st)
 
-	tpl.init()
+	tpl.init(config.FromContext(ctx).Factoids.TplPath)
 	path := config.FromContext(ctx).Factoids.HookPath
 	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		tpl.render()

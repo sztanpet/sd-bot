@@ -35,7 +35,7 @@ type cache struct {
 	valid bool
 }
 
-func (c *cache) init() {
+func (c *cache) init(tplPath string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -70,7 +70,7 @@ func (c *cache) init() {
 		"ircize": ircToHTML,
 	})
 
-	tpl, err := c.t.ParseFiles("factoid.tpl")
+	tpl, err := c.t.ParseFiles(tplPath)
 	if err != nil {
 		d.F("Unable to parse factoid.tpl, err:", err)
 	}

@@ -54,7 +54,7 @@ type IRC struct {
 	Addr     string
 	Nick     string
 	Password string
-	Channel  []string
+	Channels []string
 }
 
 type AppConfig struct {
@@ -66,25 +66,25 @@ type AppConfig struct {
 }
 
 const sampleconf = `[website]
-addr=:80
+addr=":80"
 
 [debug]
 debug=false
-logfile=logs/debug.txt
+logfile="logs/debug.txt"
 
 [github]
-hookpath=somethingrandom
-tplpath=tpl/github.tpl
+hookpath="somethingrandom"
+tplpath="tpl/github.tpl"
 announcechan="#systemd"
 
 [factoids]
-hookpath=/
-tplpath=tpl/factoids.tpl
+hookpath="/"
+tplpath="tpl/factoid.tpl"
 
 [irc]
-addr=irc.freenode.net:6667
-nick=sd-bot
-password=
+addr="irc.freenode.net:6667"
+nick="sd-bot"
+password=""
 channels=["#systemd"]
 `
 

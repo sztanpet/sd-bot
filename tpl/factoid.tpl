@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>OBScommits</title>
+    <title>systemd-bot</title>
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
 
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
@@ -86,7 +86,7 @@
         padding-left: 0;
       }
     </style>
-    
+
   </head>
   <body data-spy="scroll" data-target="#menu">
     <nav class="navbar navbar-inverse navbar-fixed-top" id="nav" role="navigation">
@@ -98,7 +98,7 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="#">OBScommits</a>
+          <a class="navbar-brand" href="#">sd-bot</a>
         </div>
 
         <div class="collapse navbar-collapse" id="menu">
@@ -197,11 +197,11 @@
             <tr>
               <td class="command-name">.addadmin</td>
               <td class="command-arguments"><span class="nobr">&lt;host&gt;</span></td>
-              <td class="command-description">Adds an administrator identified by the given host (&quot;Jim.users.quakenet.org&quot;)<br/>Works because of QuakeNet's host-masking feature (and for static-ips of course)</td>
+              <td class="command-description">Adds an administrator identified by the given registered freenode username (&quot;sztanpet&quot;)<br/>Works because of freenode's host-masking feature (and for static-ips of course)</td>
             </tr>
             <tr>
               <td class="command-name">.deladmin</td>
-              <td class="command-arguments"><span class="nobr">&lt;host&gt;</span></td>
+              <td class="command-arguments"><span class="nobr">&lt;username&gt;</span></td>
               <td class="command-description">Deletes an administrator with the given host</td>
             </tr>
 
@@ -211,7 +211,7 @@
             <tr>
               <td class="command-name">.raw</td>
               <td class="command-arguments"><span class="nobr">&lt;irc-protocol&gt;</span></td>
-              <td class="command-description">Send everything after the command as-is to the IRC server<br/>Example: &quot;.raw PRIVMSG #obsproject :needs the colons so that space-separated things are not seen as arguments&quot;</td>
+              <td class="command-description">Send everything after the command as-is to the IRC server<br/>Example: &quot;.raw PRIVMSG #systemd :needs the colons so that space-separated things are not seen as arguments&quot;</td>
             </tr>
           </table>
         </div>
@@ -220,14 +220,14 @@
 
     <footer role="contentinfo">
       <div class="container">
-        <p>Maintained by sztanpet with the help of <a href="https://github.com/sztanpet/obscommits/graphs/contributors">contributors</a>.</p>
+        <p>Maintained by sztanpet with the help of <a href="https://github.com/sztanpet/sd-bot/graphs/contributors">contributors</a>.</p>
         <p>Code licensed under the MIT license.</p>
         <ul class="footer-links muted">
-          <li><a href="https://github.com/sztanpet/obscommits">GitHub Repo</a></li>
+          <li><a href="https://github.com/sztanpet/sd-bot">GitHub Repo</a></li>
           <li>&middot;</li>
-          <li><a href="https://obsproject.com">Open Broadcaster Software</a></li>
+          <li><a href="http://www.freedesktop.org/wiki/Software/systemd">systemd project</a></li>
           <li>&middot;</li>
-          <li><a href="http://webchat.quakenet.org/?channels=obsproject">#obsproject @ QuakeNet</a></li>
+          <li><a href="http://webchat.freenode.net/?channels=systemd">#systemd @ freenode</a></li>
         </ul>
       </div>
     </footer>
