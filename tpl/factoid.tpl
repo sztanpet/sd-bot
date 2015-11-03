@@ -196,13 +196,13 @@
             </tr>
             <tr>
               <td class="command-name">.addadmin</td>
-              <td class="command-arguments"><span class="nobr">&lt;host&gt;</span></td>
-              <td class="command-description">Adds an administrator identified by the given registered freenode username (&quot;sztanpet&quot;)<br/>Works because of freenode's host-masking feature (and for static-ips of course)</td>
+              <td class="command-arguments"><span class="nobr">&lt;username&gt;</span></td>
+              <td class="command-description">Adds an administrator identified by the given registered freenode username (&quot;sztanpet&quot;)</td>
             </tr>
             <tr>
               <td class="command-name">.deladmin</td>
               <td class="command-arguments"><span class="nobr">&lt;username&gt;</span></td>
-              <td class="command-description">Deletes an administrator with the given host</td>
+              <td class="command-description">Deletes an administrator with the given username</td>
             </tr>
 
             <tr>

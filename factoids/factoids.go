@@ -62,9 +62,7 @@ func Init(ctx context.Context) context.Context {
 		d.F(err.Error())
 	}
 
-	state.Lock()
 	s = state.Get().(*st)
-	state.Unlock()
 
 	tpl.init(config.FromContext(ctx).Factoids.TplPath)
 	path := config.FromContext(ctx).Factoids.HookPath
