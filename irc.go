@@ -10,7 +10,7 @@ import (
 	"github.com/sztanpet/sd-bot/debug"
 	"github.com/sztanpet/sd-bot/factoids"
 	"github.com/sztanpet/sd-bot/persist"
-	"github.com/sztanpet/sd-bot/sirc"
+	"github.com/sztanpet/sirc"
 	"golang.org/x/net/context"
 )
 
@@ -32,11 +32,20 @@ func initIRC(ctx context.Context) context.Context {
 	}
 
 	admins = *adminState.Get().(*map[string]struct{})
-	ctx = sirc.Init(ctx, func(c *sirc.IConn, m *irc.Message) bool {
+
+	tcfg := config.FromContext(ctx)
+	sirc.DebuggingEnabled = tcfg.Debug.Debug
+	cfg := sirc.Config{
+		Addr:     tcfg.IRC.Addr,
+		Nick:     tcfg.IRC.Nick,
+		Password: tcfg.IRC.Password,
+		RealName: "http://sd-bot.sztanpet.net/",
+	}
+	c := sirc.Init(cfg, func(c *sirc.IConn, m *irc.Message) bool {
 		return handleIRC(ctx, c, m)
 	})
 
-	return ctx
+	return c.ToContext(ctx)
 }
 
 func handleIRC(ctx context.Context, c *sirc.IConn, m *irc.Message) bool {

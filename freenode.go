@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/sorcix/irc"
-	"github.com/sztanpet/sd-bot/sirc"
+	"github.com/sztanpet/sirc"
 )
 
 type adminCache struct {

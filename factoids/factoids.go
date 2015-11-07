@@ -29,7 +29,7 @@ import (
 	"github.com/sztanpet/sd-bot/config"
 	"github.com/sztanpet/sd-bot/debug"
 	"github.com/sztanpet/sd-bot/persist"
-	"github.com/sztanpet/sd-bot/sirc"
+	"github.com/sztanpet/sirc"
 	"golang.org/x/net/context"
 )
 
