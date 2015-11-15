@@ -38,15 +38,27 @@ func (ac *adminCache) Get(nick string) (string, bool) {
 
 type outstandingAdminRequest struct {
 	mu sync.Mutex
-	m  map[string]chan string
+	m  map[string]struct {
+		ch chan string
+		t  time.Time
+	}
 }
 
 func (o *outstandingAdminRequest) Add(nick string, ch chan string) {
 	o.mu.Lock()
-	o.m[nick] = ch
+	o.m[nick] = struct {
+		ch chan string
+		t  time.Time
+	}{
+		ch: ch,
+		t:  time.Now(),
+	}
 	o.mu.Unlock()
 }
-func (o *outstandingAdminRequest) Get(nick string) (chan string, bool) {
+func (o *outstandingAdminRequest) Get(nick string) (struct {
+	ch chan string
+	t  time.Time
+}, bool) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	ch, ok := o.m[nick]
@@ -64,17 +76,10 @@ func (o *outstandingAdminRequest) cleanup() {
 	t := time.NewTicker(time.Minute)
 	for {
 		o.mu.Lock()
-	loop:
-		for n, ch := range o.m {
-			select {
-			case v, ok := <-ch:
-				if ok { // whoops, received a value, put it back
-					ch <- v
-					continue loop
-				}
-
+		for n, v := range o.m {
+			if v.t.Before(time.Now().Add(-time.Minute)) {
+				close(v.ch)
 				delete(o.m, n)
-			default: // do not block
 			}
 		}
 		o.mu.Unlock()
@@ -91,7 +96,10 @@ var (
 
 func init() {
 	ac.init()
-	oar.m = map[string]chan string{}
+	oar.m = map[string]struct {
+		ch chan string
+		t  time.Time
+	}{}
 	go oar.cleanup()
 }
 
@@ -110,9 +118,9 @@ func handleFreenode(c *sirc.IConn, m *irc.Message) bool {
 	case "330": // whois success
 		// << whois armin armin
 		// >> :wilhelm.freenode.net 330 sztanpet ariscop Phase4 :is logged in as
-		ch, ok := oar.Get(m.Params[1])
+		v, ok := oar.Get(m.Params[1])
 		if ok { // maybe there was a timeout, be sure
-			ch <- m.Params[2]
+			v.ch <- m.Params[2]
 		}
 	case "263": // whois failed, ask for info from nickserv instead
 		// << whois wolfe wolfe
@@ -133,9 +141,9 @@ func handleFreenode(c *sirc.IConn, m *irc.Message) bool {
 			return false
 		}
 
-		ch, ok := oar.Get(matches[1])
+		v, ok := oar.Get(matches[1])
 		if ok {
-			ch <- matches[2]
+			v.ch <- matches[2]
 		}
 	case irc.PART: // invalidate cache
 		fallthrough

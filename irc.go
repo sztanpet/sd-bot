@@ -3,7 +3,6 @@ package main
 import (
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/sorcix/irc"
 	"github.com/sztanpet/sd-bot/config"
@@ -111,10 +110,6 @@ func checkAdmin(c *sirc.IConn, m *irc.Message) {
 
 		handleAdmin(c, m)
 	})()
-
-	// make sure the channel is closed and the goroutine is cleaned up no matter what
-	time.Sleep(time.Minute)
-	close(ch)
 }
 
 func handleAdmin(c *sirc.IConn, m *irc.Message) bool {
